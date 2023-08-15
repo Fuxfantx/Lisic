@@ -6,8 +6,8 @@ If interested, you may edit this project with Godot 4.0(alpha1-alpha14). No File
 
 Included fonts below. Before making use of the project, acquire these fonts and put them in `res://include/`.
 
-- OPPO Sans 1.0
+- OPPO Sans 1.0 `OPPOSans-R.ttf`
 
-- JetBrains Mono
+- JetBrains Mono NL `JetBrainsMonoNL-Regular.ttf`
 
 
