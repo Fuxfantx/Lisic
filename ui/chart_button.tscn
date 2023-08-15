@@ -1,0 +1,259 @@
+[gd_scene load_steps=8 format=3 uid="uid://cqkf8axtkn7ch"]
+
+[ext_resource type="FontFile" uid="uid://c3d0bqdl7tmsh" path="res://include/JetBrainsMonoNL-Regular.ttf" id="1_gqies"]
+
+[sub_resource type="GDScript" id="GDScript_1pfjp"]
+resource_name = "ChartButton"
+script/source = "extends Node
+
+@export var position:Vector2 = Vector2(0,0)
+var Song:String
+var Chart:String
+var InSong:bool = false
+
+# 按钮基础
+func _process(_delta):
+	$Button.position = position
+	$Level.position = position + Vector2(20,26)
+	$ChartName.position = position + Vector2(88,20)
+	$Result.position = position + Vector2(412,14)
+
+func init(song:String, chart:String, insong:bool=false):
+	Song = song
+	Chart = chart
+	InSong = insong
+	var split:Array = chart.split(\".\")
+	var level = split[-1].to_int()
+	if level>0 and level<6:
+		$Level.text = \"[center][color=#45fffdf7]%s[/color][/center]\" % split[-1]
+	elif level>5 and level<11:
+		$Level.text = \"[center][color=#ffff45f7]%s[/color][/center]\" % split[-1]
+	elif level>10 and level<16:
+		$Level.text = \"[center][color=#ff4545f7]%s[/color][/center]\" % split[-1]
+	split.pop_back()
+	$ChartName.text = split[0]
+	split.pop_front()
+	if not split.is_empty():
+		for i in split:
+			$ChartName.text += \".\"
+			$ChartName.text += i
+
+func _on_visible_on_screen_notifier_2d_screen_entered():
+	Notice.animation()
+	$AnimationPlayer.play(\"Show\")
+
+#从按钮进入播放器
+func _on_button_button_up():
+
+	# 编辑器模式、暂不开放
+	if get_parent().get_parent().Gas:
+		Notice.display(\"Gas Not Available Now.\")
+		return
+
+	# 加载播放器
+	var player = load(\"res://scenes/\" + IO.Mode + \".tscn\").instantiate()
+	var parent = get_parent().get_parent()
+	get_tree().call_group(\"SongCard\",\"stop_audio\")
+	Notice.transition()
+	await get_tree().create_timer(0.75).timeout
+	player.init(Song, Chart, parent.get_node(\"Jacket\").texture, InSong)
+	get_tree().get_root().add_child(player)
+
+	# 新增：将选曲界面暂停，减少曲目过多时的性能开支
+	get_tree().get_root().get_node(\"Select\").process_mode = 4
+	parent.queue_free()
+"
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_87dsy"]
+bg_color = Color(0, 0, 0, 0.4)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+corner_detail = 12
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_vwevf"]
+bg_color = Color(0, 0, 0, 0.701961)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+corner_detail = 12
+
+[sub_resource type="Animation" id="Animation_vxafo"]
+resource_name = "Hide"
+length = 0.2
+step = 0.05
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Button:theme_override_styles/pressed:bg_color")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.2),
+"update": 0,
+"values": [Color(0, 0, 0, 0.701961), Color(0, 0, 0, 0)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Level:theme_override_colors/font_color")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [Color(0.270588, 1, 0.992157, 0.968627), Color(0.270588, 1, 0.992157, 0)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("ChartName:theme_override_colors/font_color")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 0.968627), Color(1, 1, 1, 0)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("Result:theme_override_colors/default_color")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 0.968627), Color(1, 1, 1, 0)]
+}
+
+[sub_resource type="Animation" id="Animation_dbssv"]
+resource_name = "Show"
+length = 0.2
+step = 0.05
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Button:theme_override_styles/pressed:bg_color")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.2),
+"update": 0,
+"values": [Color(0, 0, 0, 0), Color(0, 0, 0, 0.701961)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Level:theme_override_colors/font_color")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [Color(0.270588, 1, 0.992157, 0), Color(0.270588, 1, 0.992157, 0.968627)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("ChartName:theme_override_colors/font_color")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 0), Color(1, 1, 1, 0.968627)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("Result:theme_override_colors/default_color")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 0), Color(1, 1, 1, 0.968627)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_vfsyi"]
+_data = {
+"Hide": SubResource("Animation_vxafo"),
+"Show": SubResource("Animation_dbssv")
+}
+
+[node name="ChartButton" type="Node"]
+script = SubResource("GDScript_1pfjp")
+
+[node name="Button" type="Button" parent="."]
+offset_right = 544.0
+offset_bottom = 88.0
+auto_translate = false
+focus_mode = 0
+theme_override_styles/normal = SubResource("StyleBoxFlat_87dsy")
+theme_override_styles/hover = SubResource("StyleBoxFlat_87dsy")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_vwevf")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_87dsy")
+shortcut_in_tooltip = false
+
+[node name="Level" type="RichTextLabel" parent="."]
+offset_left = 20.0
+offset_top = 26.0
+offset_right = 68.0
+offset_bottom = 62.0
+auto_translate = false
+theme_override_fonts/normal_font = ExtResource("1_gqies")
+theme_override_font_sizes/normal_font_size = 28
+bbcode_enabled = true
+text = "[center]0[/center]"
+scroll_active = false
+deselect_on_focus_loss_enabled = false
+meta_underlined = false
+hint_underlined = false
+shortcut_keys_enabled = false
+
+[node name="ChartName" type="Label" parent="."]
+offset_left = 88.0
+offset_top = 20.0
+offset_right = 392.0
+offset_bottom = 68.0
+auto_translate = false
+theme_override_colors/font_color = Color(1, 1, 1, 0.968627)
+theme_override_font_sizes/font_size = 28
+vertical_alignment = 1
+clip_text = true
+text_overrun_behavior = 3
+
+[node name="Result" type="RichTextLabel" parent="."]
+offset_left = 412.0
+offset_top = 14.0
+offset_right = 524.0
+offset_bottom = 74.0
+auto_translate = false
+theme_override_colors/default_color = Color(1, 1, 1, 0.968627)
+theme_override_fonts/normal_font = ExtResource("1_gqies")
+threaded = true
+scroll_active = false
+deselect_on_focus_loss_enabled = false
+
+[node name="VisibleOnScreenNotifier2D" type="VisibleOnScreenNotifier2D" parent="."]
+visible = false
+rect = Rect2(0, 0, 544, 88)
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." groups=["ChartButtonAnim"]]
+libraries = {
+"": SubResource("AnimationLibrary_vfsyi")
+}
+
+[connection signal="button_up" from="Button" to="." method="_on_button_button_up"]
+[connection signal="screen_entered" from="VisibleOnScreenNotifier2D" to="." method="_on_visible_on_screen_notifier_2d_screen_entered"]

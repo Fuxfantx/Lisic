@@ -1,0 +1,417 @@
+[gd_scene load_steps=10 format=3 uid="uid://bqnh7e0lym113"]
+
+[ext_resource type="Shader" path="res://include/corner_radius.gdshader" id="2_dqkjx"]
+
+[sub_resource type="GDScript" id="GDScript_1udpn"]
+resource_name = "SongCard"
+script/source = "extends Node
+
+var Song:String
+var InSong:bool = false #是否为内置曲？
+var Selected:bool = false
+var hold:bool = false #长按
+var Num:int = 0
+var init_pos:Vector2 = Vector2(0,612) #初始位置偏移量
+@export var delta_pos:Vector2 = Vector2.ZERO #动画偏移量
+
+
+func _process(_delta):
+	$Card.position = init_pos + delta_pos
+	$Button.position = $Card.position
+	$Jacket.position = $Card.position - Vector2(0,40)
+	$VisibleDetect.position = $Jacket.position
+	$CardPanel.position = $Jacket.position
+	$SongName.position = $Card.position + Vector2(-320,256)
+
+# 内置曲加载
+#func in_song_init():
+#	InSong = true
+#	$SongName.text = \"Intelligencia\"
+#	init_pos = Vector2(682, 0)
+# 加载
+func init(song:String, num:int=0, insong:bool=false):
+	Song = song
+	Num = num
+	InSong = insong
+	$SongName.text = song
+	init_pos.x = (num+1) * 682
+func construct():
+	$Card.texture = get_parent().uns_texture
+	$CardPanel.texture = get_parent().p_texture
+	Notice.animation()
+	$AnimationPlayer.play(\"Show\")
+func destruct():
+	Notice.animation()
+	$AnimationPlayer.play(\"Hide\")
+	await $AnimationPlayer.animation_finished
+	queue_free()
+
+
+# 选中态、取消选中态
+func select(num:int):
+	if num != Num: return
+	get_tree().call_group(\"SongCard\",\"unselect\")
+	Selected = true
+	$Card.texture = get_parent().s_texture
+	################################
+	$AudioTimer.start()
+	await $AudioTimer.timeout
+	if Selected == false: return
+	$AudioStreamPlayer.stream = IO.get_stream(Song, InSong)
+	$AudioStreamPlayer.play()
+	################################
+	return
+func unselect():
+	Selected = false
+	$Card.texture = get_parent().uns_texture
+	$AudioStreamPlayer.stop()
+	$AudioStreamPlayer.stream = null
+
+
+# 封面管理
+func _on_visible_detect_screen_entered():
+	if Notice.InDynamic == true :
+		$JacketTimer.start()
+		await $JacketTimer.timeout
+		if not $VisibleDetect.is_on_screen(): return
+	if not InSong:
+		if IO.file.file_exists(IO.Volume + Song + \"/\" + \"Jacket.png\"):
+			var jacket = Image.new()
+			jacket.load(IO.Volume + Song + \"/\" + \"Jacket.png\")
+			var jacket_texture = ImageTexture.create_from_image(jacket)
+			jacket_texture.set_size_override(Vector2(544,544))
+			$Jacket.texture = jacket_texture
+			return
+		if IO.file.file_exists(IO.Volume + Song + \"/\" + \"Jacket.jpg\"):
+			var jacket = Image.new()
+			jacket.load(IO.Volume + Song + \"/\" + \"Jacket.jpg\")
+			var jacket_texture = ImageTexture.create_from_image(jacket)
+			jacket_texture.set_size_override(Vector2(544,544))
+			$Jacket.texture = jacket_texture
+			return
+	# \"res://insong/\"
+	else:
+		if IO.file.file_exists(\"res://insong/\" + Song + \"/\" + \"Jacket.png\"):
+			var jacket = Image.new()
+			jacket.load(\"res://insong/\" + Song + \"/\" + \"Jacket.png\")
+			var jacket_texture = ImageTexture.create_from_image(jacket)
+			jacket_texture.set_size_override(Vector2(544,544))
+			$Jacket.texture = jacket_texture
+			return
+		if IO.file.file_exists(\"res://insong/\" + Song + \"/\" + \"Jacket.jpg\"):
+			var jacket = Image.new()
+			jacket.load(\"res://insong/\" + Song + \"/\" + \"Jacket.jpg\")
+			var jacket_texture = ImageTexture.create_from_image(jacket)
+			jacket_texture.set_size_override(Vector2(544,544))
+			$Jacket.texture = jacket_texture
+			return
+	randomize()
+	$Jacket.texture = load(\"res://ui/noise.tres\")
+	$Jacket.texture.noise.seed = randi_range(0,1912398676)
+	return
+func _on_visible_detect_screen_exited():
+	$Jacket.texture = null
+
+
+# 与按钮产生一些奇妙的化学反应！
+func buttondown():
+	if IO.InChart: return
+	IO.ButtonCount += 1
+	Notice.animation()
+	$AnimationPlayer.play(\"Pressed\")
+	$ButtonTimer.start()
+
+func buttonup():
+	if IO.InChart: return
+	IO.ButtonCount -= 1
+	$AnimationPlayer.play(\"Loosed\")
+	if IO.ButtonCount != 0: return
+	if hold:
+		hold = false
+		return
+	if not Selected:
+		select(Num)
+		return
+	var chart_select = get_parent().chartselect.instantiate()
+	chart_select.init(Song, $Jacket.texture, InSong)
+	get_parent().get_parent().get_node(\"ChartLayer\").add_child(chart_select)
+
+func enter():
+	if not Selected: return
+	var chart_select = get_parent().chartselect.instantiate()
+	chart_select.init(Song, $Jacket.texture, InSong)
+	get_parent().get_parent().get_node(\"ChartLayer\").add_child(chart_select)
+
+func _on_animation_player_animation_finished(_anim_name):
+	Notice.InDynamic = false
+	# 更新：修复动画无法完播时Card不能对齐的问题
+	delta_pos.y = 0
+	$Card.position = init_pos + delta_pos
+	$Button.position = $Card.position
+	$Jacket.position = $Card.position - Vector2(0,40)
+	$VisibleDetect.position = $Jacket.position
+	$CardPanel.position = $Jacket.position
+	$SongName.position = $Card.position + Vector2(-320,256)
+	# 更新：使用set_process()优化
+	set_process(false)
+
+
+# 更新：按钮长按优化
+func _on_button_timer_timeout():
+	if $Button.is_pressed(): hold = true
+
+# 更新：停止音频
+func stop_audio():
+	if not Selected: return
+	$AudioStreamPlayer.stop()
+
+# 更新：使用set_process()优化
+func _on_animation_player_animation_started(_anim_name):
+	set_process(true)
+"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_f7qwa"]
+shader = ExtResource("2_dqkjx")
+corner_radius = 12.0
+
+[sub_resource type="Animation" id="Animation_07fpu"]
+resource_name = "Hide"
+length = 0.17
+step = 0.01
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:delta_pos")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.02, 0.17),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Vector2(0, 102), Vector2(0, 102), Vector2(0, 0)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Card:modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.02, 0.17),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 1), Color(1, 1, 1, 1), Color(1, 1, 1, 0)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("CardPanel:modulate")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 0.02, 0.17),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 1), Color(1, 1, 1, 1), Color(1, 1, 1, 0)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("Jacket:modulate")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0, 0.02, 0.17),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 1), Color(1, 1, 1, 1), Color(1, 1, 1, 0)]
+}
+
+[sub_resource type="Animation" id="Animation_7o5uj"]
+resource_name = "Loosed"
+length = 0.1
+step = 0.05
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Jacket:scale")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.1),
+"transitions": PackedFloat32Array(1, 0.51),
+"update": 0,
+"values": [Vector2(0.95, 0.95), Vector2(1, 1)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("CardPanel:scale")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.1),
+"transitions": PackedFloat32Array(1, 0.51),
+"update": 0,
+"values": [Vector2(0.475, 0.475), Vector2(0.5, 0.5)]
+}
+
+[sub_resource type="Animation" id="Animation_mpgj8"]
+resource_name = "Pressed"
+length = 0.1
+step = 0.05
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Jacket:scale")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.1),
+"transitions": PackedFloat32Array(1, 0.51),
+"update": 0,
+"values": [Vector2(1, 1), Vector2(0.95, 0.95)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("CardPanel:scale")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.1),
+"transitions": PackedFloat32Array(1, 0.51),
+"update": 0,
+"values": [Vector2(0.5, 0.5), Vector2(0.475, 0.475)]
+}
+
+[sub_resource type="Animation" id="Animation_euis6"]
+resource_name = "Show"
+length = 0.17
+step = 0.01
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:delta_pos")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.15, 0.17),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Vector2(0, 102), Vector2(0, 0), Vector2(0, 0)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Card:modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.15, 0.17),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 0), Color(1, 1, 1, 1), Color(1, 1, 1, 1)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("CardPanel:modulate")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 0.15, 0.17),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 0), Color(1, 1, 1, 1), Color(1, 1, 1, 1)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("Jacket:modulate")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0, 0.15, 0.17),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [Color(1, 1, 1, 0), Color(1, 1, 1, 1), Color(1, 1, 1, 1)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_spy32"]
+_data = {
+"Hide": SubResource("Animation_07fpu"),
+"Loosed": SubResource("Animation_7o5uj"),
+"Pressed": SubResource("Animation_mpgj8"),
+"Show": SubResource("Animation_euis6")
+}
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_kbvxa"]
+size = Vector2(640, 720)
+
+[node name="SongCard" type="Node" groups=["SongCard"]]
+process_priority = -2
+script = SubResource("GDScript_1udpn")
+delta_pos = Vector2(0, 102)
+
+[node name="Card" type="Sprite2D" parent="."]
+scale = Vector2(0.5, 0.5)
+
+[node name="Jacket" type="Sprite2D" parent="."]
+material = SubResource("ShaderMaterial_f7qwa")
+position = Vector2(0, -40)
+scale = Vector2(0.95, 0.95)
+
+[node name="CardPanel" type="Sprite2D" parent="."]
+position = Vector2(0, -40)
+scale = Vector2(0.475, 0.475)
+
+[node name="SongName" type="Label" parent="."]
+offset_left = -320.0
+offset_top = 256.0
+offset_right = 320.0
+offset_bottom = 319.0
+auto_translate = false
+theme_override_colors/font_color = Color(1, 1, 1, 0.960784)
+theme_override_font_sizes/font_size = 42
+horizontal_alignment = 1
+vertical_alignment = 1
+clip_text = true
+text_overrun_behavior = 3
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+method_call_mode = 1
+libraries = {
+"": SubResource("AnimationLibrary_spy32")
+}
+
+[node name="AudioStreamPlayer" type="AudioStreamPlayer" parent="."]
+
+[node name="VisibleDetect" type="VisibleOnScreenNotifier2D" parent="."]
+position = Vector2(0, -40)
+rect = Rect2(-272, -272, 544, 544)
+
+[node name="JacketTimer" type="Timer" parent="."]
+wait_time = 0.075
+one_shot = true
+
+[node name="AudioTimer" type="Timer" parent="."]
+wait_time = 0.5
+autostart = true
+
+[node name="ButtonTimer" type="Timer" parent="."]
+wait_time = 0.1
+one_shot = true
+
+[node name="Button" type="TouchScreenButton" parent="."]
+shape = SubResource("RectangleShape2D_kbvxa")
+shape_centered = false
+
+[connection signal="tree_entered" from="." to="." method="construct"]
+[connection signal="animation_finished" from="AnimationPlayer" to="." method="_on_animation_player_animation_finished"]
+[connection signal="animation_started" from="AnimationPlayer" to="." method="_on_animation_player_animation_started"]
+[connection signal="screen_entered" from="VisibleDetect" to="." method="_on_visible_detect_screen_entered"]
+[connection signal="screen_exited" from="VisibleDetect" to="." method="_on_visible_detect_screen_exited"]
+[connection signal="timeout" from="ButtonTimer" to="." method="_on_button_timer_timeout"]
+[connection signal="pressed" from="Button" to="." method="buttondown"]
+[connection signal="released" from="Button" to="." method="buttonup"]

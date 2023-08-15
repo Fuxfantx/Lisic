@@ -1,0 +1,627 @@
+[gd_scene load_steps=10 format=3 uid="uid://ccpt76kuogx6s"]
+
+[ext_resource type="PackedScene" uid="uid://cqkf8axtkn7ch" path="res://ui/chart_button.tscn" id="1_ecetj"]
+[ext_resource type="FontFile" uid="uid://c3d0bqdl7tmsh" path="res://include/JetBrainsMonoNL-Regular.ttf" id="1_gxpm7"]
+
+[sub_resource type="GDScript" id="GDScript_fsisg"]
+resource_name = "ChartSelect"
+script/source = "extends Control
+@export var delta_scale:Vector2 = Vector2(1,1)
+@export var chart_button:PackedScene
+
+var Gas:bool = false #是否进入编辑器？
+
+func init(song:String, texture:Texture, insong:bool=false):
+
+	# 基础设置
+	IO.InChart = true
+	$PlayerName.text = IO.Save[\"Player\"]
+	$Jacket.texture = texture
+	$SongName.text = song
+
+	# 获取谱面列表
+	if not insong: IO.dir.open(IO.Volume + song + \"/\" + IO.Mode + \"/\")
+	else: IO.dir.open(\"res://insong/\" + song + \"/\" + IO.Mode + \"/\")
+	var list1:Array = IO.dir.get_files()
+	if list1.is_empty(): return
+
+	# 排序（list2是最终结果，list3是后面追加的按难度顺序排序）
+	var list2:PackedStringArray = []
+	var list3:Array = []
+	var split:PackedStringArray
+	for i in list1:
+		split = i.split(\".\")
+		var dif = split[-1].to_int()
+		if dif>0 and dif<16: list3.append([i, dif])
+	list3.sort_custom(sorter)
+	for i in range(0, list3.size() ): list2.append(list3[i][0])
+	var csize:int = list2.size()
+	IO.dir = Directory.new()
+
+	# 谱面数量0-5张
+	if csize==0 : return
+	if csize<6 :
+		$List.init_offset = Vector2( -272 , 334 )
+		var yplus:int = 0
+		for i in list2:
+			var new_button = chart_button.instantiate()
+			new_button.init(song,i,insong)
+			new_button.position = Vector2(0, yplus)
+			$List.add_child(new_button)
+			yplus+=124
+	#  6-10张
+	elif csize<11 :
+		$List.init_offset = Vector2( -562 , 334 )
+		var yplus:int = 0
+		for i in range(0,5):
+			var new_button = chart_button.instantiate()
+			new_button.init(song,list2[i],insong)
+			new_button.position = Vector2(0, yplus)
+			$List.add_child(new_button)
+			yplus+=124
+		yplus = 0
+		for i in range(5,csize):
+			var new_button = chart_button.instantiate()
+			new_button.init(song,list2[i],insong)
+			new_button.position = Vector2(580, yplus)
+			$List.add_child(new_button)
+			yplus+=124
+	# 10张以上
+	else:
+		$List.init_offset = Vector2( -852 , 334 )
+		if csize>15:
+			Notice.display(\"Chart Number Limit Exceeded.\\n Only the first 15 charts will be displayed.\")
+			csize = 15
+		var yplus:int = 0
+		for i in range(0,5):
+			var new_button = chart_button.instantiate()
+			new_button.init(song,list2[i],insong)
+			new_button.position = Vector2(0, yplus)
+			$List.add_child(new_button)
+			yplus+=124
+		yplus = 0
+		for i in range(5,10):
+			var new_button = chart_button.instantiate()
+			new_button.init(song,list2[i],insong)
+			new_button.position = Vector2(580, yplus)
+			$List.add_child(new_button)
+			yplus+=124
+		yplus = 0
+		for i in range(10,csize):
+			var new_button = chart_button.instantiate()
+			new_button.init(song,list2[i],insong)
+			new_button.position = Vector2(1160, yplus)
+			$List.add_child(new_button)
+			yplus+=124
+
+
+func _process(_delta):
+	$Jacket.scale.x = IO.C / 272 * delta_scale.x
+	$Jacket.scale.y = $Jacket.scale.x
+
+func _on_chart_select_resized():
+	$Jacket.position.x = IO.C
+	$SongName.position.x = IO.C - 640
+	$BackButton.position.x = IO.C - 100
+	$Latency1.position.x = IO.C * 2 - 180
+	$Latency3.position.x = $Latency1.position.x
+	$Latency2.position.x = IO.C * 2 - 84
+	# 更新：set_process()优化
+	$Jacket.scale.x = IO.C / 272 * delta_scale.x
+	$Jacket.scale.y = $Jacket.scale.x
+	$List.offset = Vector2( IO.C, 0) + $List.delta_offset + $List.init_offset
+
+
+func _on_back_button_button_up():
+	Notice.animation()
+	get_tree().call_group(\"ChartButtonAnim\",\"play\",\"Hide\")
+	$AnimationPlayer.play(\"Hide\")
+	await $AnimationPlayer.animation_finished
+	IO.InChart = false
+	queue_free()
+
+func sorter(param1:Array,param2:Array):
+		if param1[1]<param2[1]: return true
+		return false
+
+func _on_animation_player_animation_finished(_anim_name):
+	Notice.InDynamic = false
+	# 更新：set_process()优化
+	set_process(false)
+	$List.delta_offset.y = 354
+	$List.set_process(false)
+
+func _on_chart_select_tree_entered():
+	Notice.animation()
+	$AnimationPlayer.play(\"Show\")
+
+
+
+#############################################
+# 追加功能：显示模式名、切换Offset预设、进入编辑器
+# 更新：set_process()优化
+#############################################
+func _ready():
+	$Mode.texture = load(\"res://ui/\" + IO.Mode + \".png\")
+	$ModeName.text = IO.Mode
+	if IO.OFS2 == false: $Latency2.text = \"OF\"
+	else: $Latency2.text = \"BT\"
+
+func _on_latency_3_button_up():
+	if IO.OFS2 == false:
+		IO.OFS2 = true
+		$Latency2.text = \"BT\"
+		return
+	IO.OFS2 = false
+	$Latency2.text = \"OF\"
+
+func _on_gas_button_up():
+	if not Gas:
+		Gas = true
+		$ModeName.text = \"Gas for \" + IO.Mode
+		return
+	Gas = false
+	$ModeName.text = IO.Mode
+
+func _input(event):
+	if not event.is_action_pressed(\"ui_select\", false): return
+	Notice.animation()
+	get_tree().call_group(\"ChartButtonAnim\",\"play\",\"Hide\")
+	$AnimationPlayer.play(\"Hide\")
+	await $AnimationPlayer.animation_finished
+	IO.InChart = false
+	queue_free()
+
+func _on_animation_player_animation_started(_anim_name):
+	set_process(true)
+"
+
+[sub_resource type="GDScript" id="GDScript_82ryy"]
+resource_name = "CanvasLayer"
+script/source = "extends CanvasLayer
+@export var delta_offset:Vector2 = Vector2(0,0)
+var init_offset:Vector2 = Vector2(0,0)
+
+func _process(_delta):
+	offset = Vector2( IO.C, 0) + delta_offset + init_offset
+"
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_qrp1u"]
+bg_color = Color(1, 1, 1, 0.729412)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.121569, 0.117647, 0.2, 0.368627)
+corner_radius_top_left = 36
+corner_radius_top_right = 36
+corner_radius_bottom_right = 36
+corner_radius_bottom_left = 36
+corner_detail = 20
+expand_margin_left = 1.0
+expand_margin_top = 1.0
+expand_margin_right = 1.0
+expand_margin_bottom = 1.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_im332"]
+bg_color = Color(0.121569, 0.117647, 0.2, 0.729412)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.368627)
+corner_radius_top_left = 36
+corner_radius_top_right = 36
+corner_radius_bottom_right = 36
+corner_radius_bottom_left = 36
+corner_detail = 20
+expand_margin_left = 1.0
+expand_margin_top = 1.0
+expand_margin_right = 1.0
+expand_margin_bottom = 1.0
+
+[sub_resource type="Animation" id="Animation_ex64g"]
+resource_name = "Hide"
+length = 0.2
+step = 0.05
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:delta_scale")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.2),
+"update": 0,
+"values": [Vector2(1, 1), Vector2(1.5, 1.5)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("PlayerName:theme_override_colors/font_color")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Color(0, 0, 0, 1), Color(0, 0, 0, 0)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("SongName:theme_override_colors/font_color")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Color(0.0392157, 0.0392157, 0.0392157, 0.968627), Color(0, 0, 0, 0)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("BackButton:modulate")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Color(1, 1, 1, 1), Color(1, 1, 1, 0)]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("List:delta_offset")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Vector2(0, 0), Vector2(0, 354)]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("Jacket:modulate")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Color(1, 1, 1, 1), Color(1, 1, 1, 0)]
+}
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("Mode:modulate")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Color(0, 0, 0, 1), Color(0, 0, 0, 0)]
+}
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath("ModeName:theme_override_colors/font_color")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Color(0, 0, 0, 1), Color(0, 0, 0, 0)]
+}
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath("Latency1:theme_override_colors/font_color")
+tracks/8/interp = 1
+tracks/8/loop_wrap = true
+tracks/8/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Color(0, 0, 0, 1), Color(0, 0, 0, 0)]
+}
+tracks/9/type = "value"
+tracks/9/imported = false
+tracks/9/enabled = true
+tracks/9/path = NodePath("Latency2:theme_override_colors/font_color")
+tracks/9/interp = 1
+tracks/9/loop_wrap = true
+tracks/9/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Color(0, 0, 0, 1), Color(0, 0, 0, 0)]
+}
+tracks/10/type = "value"
+tracks/10/imported = false
+tracks/10/enabled = true
+tracks/10/path = NodePath("Panel:color")
+tracks/10/interp = 1
+tracks/10/loop_wrap = true
+tracks/10/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 2),
+"update": 0,
+"values": [Color(0.968627, 0.968627, 0.968627, 0.968627), Color(0.968627, 0.968627, 0.968627, 0)]
+}
+
+[sub_resource type="Animation" id="Animation_o1mee"]
+resource_name = "Show"
+length = 0.2
+step = 0.05
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:delta_scale")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.1),
+"update": 0,
+"values": [Vector2(1.5, 1.5), Vector2(1, 1)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("PlayerName:theme_override_colors/font_color")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Color(0, 0, 0, 0), Color(0, 0, 0, 1)]
+}
+tracks/2/type = "value"
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/path = NodePath("SongName:theme_override_colors/font_color")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Color(0, 0, 0, 0), Color(0.0392157, 0.0392157, 0.0392157, 0.968627)]
+}
+tracks/3/type = "value"
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/path = NodePath("List:delta_offset")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Vector2(0, 354), Vector2(0, 0)]
+}
+tracks/4/type = "value"
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/path = NodePath("Jacket:modulate")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Color(1, 1, 1, 0), Color(1, 1, 1, 1)]
+}
+tracks/5/type = "value"
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/path = NodePath("Mode:modulate")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Color(0, 0, 0, 0), Color(0, 0, 0, 1)]
+}
+tracks/6/type = "value"
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/path = NodePath("ModeName:theme_override_colors/font_color")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Color(0, 0, 0, 0), Color(0, 0, 0, 1)]
+}
+tracks/7/type = "value"
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/path = NodePath("Latency1:theme_override_colors/font_color")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Color(0, 0, 0, 0), Color(0, 0, 0, 1)]
+}
+tracks/8/type = "value"
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/path = NodePath("Latency2:theme_override_colors/font_color")
+tracks/8/interp = 1
+tracks/8/loop_wrap = true
+tracks/8/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(1, 0.7),
+"update": 0,
+"values": [Color(0, 0, 0, 0), Color(0, 0, 0, 1)]
+}
+tracks/9/type = "value"
+tracks/9/imported = false
+tracks/9/enabled = true
+tracks/9/path = NodePath("Panel:color")
+tracks/9/interp = 1
+tracks/9/loop_wrap = true
+tracks/9/keys = {
+"times": PackedFloat32Array(0, 0.2),
+"transitions": PackedFloat32Array(0.2, 1),
+"update": 0,
+"values": [Color(0.968627, 0.968627, 0.968627, 0), Color(0.968627, 0.968627, 0.968627, 0.968627)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_10n7u"]
+_data = {
+"Hide": SubResource("Animation_ex64g"),
+"Show": SubResource("Animation_o1mee")
+}
+
+[node name="ChartSelect" type="Control" groups=["ChartSelect"]]
+process_priority = -1
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = SubResource("GDScript_fsisg")
+chart_button = ExtResource("1_ecetj")
+
+[node name="Jacket" type="Sprite2D" parent="."]
+position = Vector2(960, 612)
+
+[node name="Panel" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.968627, 0.968627, 0.968627, 0.968627)
+
+[node name="PlayerName" type="Label" parent="."]
+offset_left = 156.0
+offset_top = 68.0
+offset_right = 312.0
+offset_bottom = 116.0
+pivot_offset = Vector2(0, 24)
+auto_translate = false
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 34
+vertical_alignment = 1
+
+[node name="SongName" type="Label" parent="."]
+offset_left = 360.0
+offset_top = 190.0
+offset_right = 1640.0
+offset_bottom = 262.0
+auto_translate = false
+theme_override_colors/font_color = Color(0.0392157, 0.0392157, 0.0392157, 0.968627)
+theme_override_font_sizes/font_size = 56
+horizontal_alignment = 1
+vertical_alignment = 1
+clip_text = true
+text_overrun_behavior = 3
+
+[node name="List" type="CanvasLayer" parent="."]
+layer = 4
+script = SubResource("GDScript_82ryy")
+
+[node name="BackButton" type="Button" parent="."]
+custom_minimum_size = Vector2(200, 72)
+offset_left = 860.0
+offset_top = 1038.0
+offset_right = 1060.0
+offset_bottom = 1110.0
+focus_mode = 0
+theme_override_colors/font_color = Color(0, 0, 0, 0.968627)
+theme_override_colors/font_pressed_color = Color(1, 1, 1, 0.968627)
+theme_override_colors/font_hover_color = Color(0, 0, 0, 0.968627)
+theme_override_colors/font_focus_color = Color(0, 0, 0, 0.968627)
+theme_override_colors/font_hover_pressed_color = Color(0, 0, 0, 0.968627)
+theme_override_colors/font_disabled_color = Color(0, 0, 0, 0.968627)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.968627)
+theme_override_font_sizes/font_size = 22
+theme_override_styles/normal = SubResource("StyleBoxFlat_qrp1u")
+theme_override_styles/hover = SubResource("StyleBoxFlat_qrp1u")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_im332")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_qrp1u")
+theme_override_styles/focus = SubResource("StyleBoxFlat_qrp1u")
+shortcut_in_tooltip = false
+text = "◎  Songs"
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+libraries = {
+"": SubResource("AnimationLibrary_10n7u")
+}
+
+[node name="Mode" type="Sprite2D" parent="."]
+modulate = Color(0, 0, 0, 1)
+position = Vector2(60, 1152)
+scale = Vector2(0.2, 0.2)
+
+[node name="ModeName" type="Label" parent="."]
+offset_left = 100.0
+offset_top = 1132.0
+offset_right = 256.0
+offset_bottom = 1172.0
+auto_translate = false
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 28
+vertical_alignment = 1
+
+[node name="Gas" type="Button" parent="."]
+offset_left = 36.0
+offset_top = 1132.0
+offset_right = 256.0
+offset_bottom = 1172.0
+auto_translate = false
+focus_mode = 0
+flat = true
+
+[node name="Latency1" type="Label" parent="."]
+offset_left = 1740.0
+offset_top = 1121.0
+offset_right = 1820.0
+offset_bottom = 1183.0
+auto_translate = false
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_font_sizes/font_size = 20
+text = "Latency
+Mode"
+horizontal_alignment = 2
+vertical_alignment = 1
+
+[node name="Latency2" type="Label" parent="."]
+offset_left = 1836.0
+offset_top = 1128.0
+offset_right = 1884.0
+offset_bottom = 1176.0
+auto_translate = false
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+theme_override_fonts/font = ExtResource("1_gxpm7")
+theme_override_font_sizes/font_size = 32
+text = "OF"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Latency3" type="Button" parent="."]
+offset_left = 1740.0
+offset_top = 1121.0
+offset_right = 1884.0
+offset_bottom = 1183.0
+auto_translate = false
+focus_mode = 0
+flat = true
+
+[connection signal="resized" from="." to="." method="_on_chart_select_resized"]
+[connection signal="tree_entered" from="." to="." method="_on_chart_select_tree_entered"]
+[connection signal="button_up" from="BackButton" to="." method="_on_back_button_button_up"]
+[connection signal="animation_finished" from="AnimationPlayer" to="." method="_on_animation_player_animation_finished"]
+[connection signal="animation_started" from="AnimationPlayer" to="." method="_on_animation_player_animation_started"]
+[connection signal="button_up" from="Gas" to="." method="_on_gas_button_up"]
+[connection signal="button_up" from="Latency3" to="." method="_on_latency_3_button_up"]

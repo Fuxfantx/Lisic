@@ -1,0 +1,106 @@
+[gd_scene load_steps=2 format=3 uid="uid://dyvjy6kn3wxed"]
+
+[sub_resource type="GDScript" id="GDScript_8vssb"]
+resource_name = "LisicNote"
+script/source = "extends Sprite2D
+
+var DTime:float = 0  #时间位置
+var Pos:int = 0  #判定位置
+
+var Terminated:bool = true  #不再更新
+var Miss:bool = false  #被判Miss时可以显示红色
+var delta_dtime:float = 0  #时间差
+
+var init_texture:Texture2D
+var tween_duriation:float = 0.15
+var tween_duriation_miss:float = 0.25
+
+
+func init(dtime:float, pos:int, catch:bool=false):
+	# 基础设置
+	Terminated = false
+	DTime = dtime
+	Pos = pos
+
+	# 传材质，
+	# 这导致你只能先add_child，再init
+	if catch: init_texture = get_parent().catch
+	else: init_texture = get_parent().tap
+
+	# 更新位置
+	if pos == -1 :
+		scale.y = 1.5
+		scale.x = scale.y
+		position.y = 0.7*DTime
+		position.x = position.y
+		return
+	elif pos == 11:
+		scale.y = 1.5
+		scale.x = scale.y
+		position.y = 0.7*DTime
+		position.x = -position.y
+		return
+	position.y = -DTime
+	position.x = 160*pos
+	return
+
+
+func detect(current_dtime:float):
+	# 基础设置
+	if Terminated: return
+	delta_dtime = current_dtime - DTime
+
+	# 如果不在画面内，则不渲染
+	if (delta_dtime < -1166.0 or delta_dtime > 142.0) :
+		texture = null
+		visible = false
+		return
+	texture = init_texture
+	visible = true
+
+	# L/R Note透明化
+	if (Pos==-1 or Pos==11):
+		if delta_dtime < -730.0: self_modulate = Color(1.0,1.0,1.0, 1 + delta_dtime/1166.0 )
+		elif delta_dtime < 0: self_modulate = Color(1.0,1.0,1.0, 1 + delta_dtime/2332.0 )
+	return
+
+
+func terminate_tween_method(index:float):  #index从0.0变为1.0
+	# 更新Scale
+	scale.y = 1.5 + index
+	scale.x = scale.y
+
+	# 更新不透明度
+	if Miss:
+		if index<0.5:
+			self_modulate = Color(1.0,0.0,0.0,1.0)
+			return
+		self_modulate = Color(1.0,0.0,0.0, 2.0 - 2*index )
+		return
+	self_modulate = Color(1.0,0.37,1.0, 1.0 - index )
+	return
+
+
+func hit():
+	Terminated = true
+	if Pos==-1 or Pos==11 or Miss:
+		var tween = create_tween()
+		####################
+		tween.stop()
+		tween.set_ease(Tween.EASE_IN)
+		tween.set_trans(Tween.TRANS_SINE)
+		tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+		tween.tween_method(terminate_tween_method, 0.0, 1.0, tween_duriation)
+		####################
+		tween.play()
+		await tween.finished
+	queue_free()
+
+func miss():
+	Miss = true
+	tween_duriation = tween_duriation_miss
+	hit()
+"
+
+[node name="LisicNote" type="Sprite2D" groups=["LisicNote"]]
+script = SubResource("GDScript_8vssb")

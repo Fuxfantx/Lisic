@@ -1,0 +1,553 @@
+[gd_scene load_steps=30 format=3 uid="uid://b8tb2jihdp4p6"]
+
+[ext_resource type="Shader" path="res://include/corner_radius.gdshader" id="1_n1580"]
+[ext_resource type="Texture2D" uid="uid://c2r3x7wol1k7s" path="res://include/background.jpg" id="2_wvn0n"]
+[ext_resource type="Texture2D" uid="uid://c8jriv7aleqm" path="res://ui/card_selected.png" id="3_vgvgf"]
+[ext_resource type="Texture2D" uid="uid://cbta1f4ui5swa" path="res://icon.png" id="3_wbc4q"]
+[ext_resource type="Texture2D" uid="uid://2i5ic0ljtod3" path="res://ui/card.png" id="4_d8gdg"]
+[ext_resource type="Texture2D" uid="uid://d31nlijqdxmvr" path="res://ui/card_panel.png" id="4_yh0rk"]
+[ext_resource type="PackedScene" uid="uid://bqnh7e0lym113" path="res://ui/song_card.tscn" id="5_6gns8"]
+[ext_resource type="Texture2D" uid="uid://df8icyxayla7c" path="res://ui/Lisic.png" id="5_8iepl"]
+[ext_resource type="PackedScene" uid="uid://ccpt76kuogx6s" path="res://scenes/chart_select.tscn" id="6_cx205"]
+
+[sub_resource type="GDScript" id="GDScript_hgmbq"]
+resource_name = "Select"
+script/source = "extends Control
+
+func _ready():
+
+	# 显示头像
+	var icon = Image.new()
+	if IO.file.file_exists(IO.Volume + \"Icon.png\"):
+		icon.load(IO.Volume + \"Icon.png\")
+		var icon_texture = ImageTexture.create_from_image(icon)
+		icon_texture.set_size_override(Vector2(352,352))
+		$OverLayer/Icon.texture = icon_texture
+	elif IO.file.file_exists(IO.Volume + \"Icon.jpg\"):
+		icon.load(IO.Volume + \"Icon.jpg\")
+		var icon_texture = ImageTexture.create_from_image(icon)
+		icon_texture.set_size_override(Vector2(352,352))
+		$OverLayer/Icon.texture = icon_texture
+
+	# 加载玩家名称
+	$PlayerName.text = IO.Save[\"Player\"]
+	$ChangePlayerName.text = $PlayerName.text
+
+
+# 调整大小
+func _on_resized():
+
+	# 上下边界
+	var R = get_rect().end.x
+	var upedge_polygon:PackedVector2Array = [Vector2(0,0),Vector2(R,0),Vector2(R,12),Vector2(0,12)]
+	var downedge_polygon:PackedVector2Array = [Vector2(0,1212),Vector2(R,1212),Vector2(R,1224),Vector2(0,1224)]
+	$OverLayer/UpEdge.polygon = upedge_polygon
+	$OverLayer/DownEdge.polygon = downedge_polygon
+
+	# 背景
+	$Background.position.x = get_rect().end.x / 2
+	$Background.scale.x = get_rect().end.x / 2560
+	$Background.scale.y = $Background.scale.x
+
+	# 曲目管理
+	IO.C = R / 2
+	$Songs.init_offset.x = IO.C
+
+	# 杂项
+	$Docs.position.x = IO.C - 100
+
+
+# 修改玩家名称功能
+func _on_change_player_name_button_up():
+
+	# 不要那么频繁的修改存档
+	var old_name = $PlayerName.text
+
+	# 取出编辑框
+	$LineEdit.text = $PlayerName.text
+	$LineEdit.size = $PlayerName.size
+	$LineEdit.position = $PlayerName.position
+	$LineEdit.pivot_offset = $PlayerName.pivot_offset
+
+	# 其它准备工作
+	$PlayerName.text = \"\"
+	$ChangePlayerName.disabled = true
+	Notice.display(\"Press Enter(Return) to Submit Your New Name.\")
+	await $LineEdit.text_submitted
+
+	# 完成编辑时的复原工作
+	if $LineEdit.text == \"\": $PlayerName.text = old_name
+	else: $PlayerName.text = $LineEdit.text
+	$ChangePlayerName.disabled = false
+	$ChangePlayerName.text = $PlayerName.text
+	$LineEdit.text = \"\"
+	$LineEdit.size = Vector2(124,45)
+	$LineEdit.position = Vector2(0,1248)
+	$LineEdit.pivot_offset = Vector2(0,0)
+
+	# 更新存档
+	if $PlayerName.text != old_name:
+		IO.Save[\"Player\"] = $PlayerName.text
+		IO.save_update()
+	return
+
+func tut():
+	Notice.display(\"Coming Soon.\")
+"
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_y17l5"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_fvr60"]
+bg_color = Color(0, 0, 0, 0.25098)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+corner_detail = 12
+expand_margin_left = 20.0
+expand_margin_top = 20.0
+expand_margin_right = 20.0
+expand_margin_bottom = 20.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_37q16"]
+bg_color = Color(0, 0, 0, 0.501961)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+corner_detail = 12
+expand_margin_left = 20.0
+expand_margin_top = 20.0
+expand_margin_right = 20.0
+expand_margin_bottom = 20.0
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_gtvjc"]
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_r3jix"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_y7qff"]
+bg_color = Color(0, 0, 0, 0.501961)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+corner_detail = 12
+expand_margin_left = 20.0
+expand_margin_top = 20.0
+expand_margin_right = 20.0
+expand_margin_bottom = 20.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_5efk0"]
+bg_color = Color(0, 0, 0, 0.501961)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+corner_detail = 12
+expand_margin_left = 20.0
+expand_margin_top = 20.0
+expand_margin_right = 20.0
+expand_margin_bottom = 20.0
+
+[sub_resource type="GDScript" id="GDScript_d5pnq"]
+resource_name = "Songs"
+script/source = "extends CanvasLayer
+
+@export var init_offset:Vector2
+@export var delta_offset:Vector2 = Vector2(0,0)
+@export var uns_texture:Texture2D
+@export var s_texture:Texture2D
+@export var p_texture:Texture2D
+@export var songcard:PackedScene
+@export var chartselect:PackedScene
+
+var pos:int = -1
+var song_loaded:bool = false
+signal loosed
+
+func _process(_delta):
+	offset = init_offset + delta_offset
+
+# Tween管理，load_tween是“安全的“tween_method；tweentime是“适配过Notice的”duration
+var tween:Tween
+func load_tween(a,b,c,d):
+	tween = create_tween()
+	tween.stop()
+	tween.tween_method(a,b,c,d)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_process_mode(Tween.TWEEN_PROCESS_IDLE)
+	tween.set_trans(Tween.TRANS_QUAD)
+	tween.play()
+func delta_posx(x:float):
+	delta_offset.x = x
+func tweentime(time:float):
+	$Timer.wait_time = time
+	Notice.animation()
+	$Timer.start()
+	return time
+func key_over():
+	Notice.InDynamic = false
+
+# 交互
+var Finger:int = -1  #记录第一个在屏幕上的手指f
+var tofs:float #记录f按下时的delta_offset.x，不出意外的话这个值 mod 682绝对得0
+var tvelo:float #记录f松手前的拖动速度大小
+func _input(event):
+	if IO.InChart: return
+	if event.is_action_pressed(\"ui_left\", true):
+		if pos == -1: return
+		pos -= 1
+		load_tween(delta_posx, delta_offset.x, delta_offset.x+682, tweentime(0.15) )
+		get_tree().call_group(\"SongCard\",\"select\",pos)
+	elif event.is_action_pressed(\"ui_right\", true):
+		if pos == IO.SongNum - 1: return
+		pos += 1
+		load_tween(delta_posx, delta_offset.x, delta_offset.x-682, tweentime(0.15) )
+		get_tree().call_group(\"SongCard\",\"select\",pos)
+	elif event.is_action_pressed(\"ui_select\", false):
+		get_tree().call_group(\"SongCard\",\"enter\")
+	if not ( (event is InputEventScreenDrag)or(event is InputEventScreenTouch) ): return
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			if Finger != -1: return
+			Finger = event.index
+			tofs = delta_offset.x
+			return
+		if event.index != Finger: return
+		Finger = -1
+		##########  以下为松手时的动作  ##########
+		Notice.animation()
+		# 第一段滚动
+		if abs(tofs - delta_offset.x)> 876:
+			clamp(tvelo, -6820, 6820)
+			load_tween( delta_posx, delta_offset.x, clampf(delta_offset.x + tvelo/3, -IO.SongNum*682, 0) , tweentime(   clampf(abs(tvelo)/10230,0,0.25)   ) )
+			await tween.finished
+		# 第二段吸附/回弹
+		var fix:int = int(delta_offset.x) % 682
+		if fix!=0:
+			if fix< -341: fix = fix + 682
+			var twtime = clampf( float(fix)/500,0.05,0.1 )
+			load_tween(delta_posx, delta_offset.x, delta_offset.x - fix, tweentime(twtime) )
+			await tween.finished
+		# 更新pos、重新选中
+		if delta_offset.x>0 or delta_offset.x < -IO.SongNum*682:
+			var delta_offset_x:float = clamp(delta_offset.x, -682*IO.SongNum, 0)
+			load_tween(delta_posx, delta_offset.x, delta_offset_x, tweentime(0.02) )
+			await tween.finished
+		var ppos:int = pos
+		pos = clampi(int(-(delta_offset.x) / 682)-1, -1, IO.SongNum-1)
+		if pos!=ppos: get_tree().call_group(\"SongCard\",\"select\",pos)
+		Notice.InDynamic = false
+	##########  以下为拖动的实时响应  ##########
+	else:
+		if event.index != Finger: return
+		delta_offset.x += event.relative.x
+		tvelo = event.velocity.x
+
+
+# 按钮行为
+func loose(button_pressed:bool):
+	if button_pressed: return
+	get_tree().call_group(\"SongCard\",\"destruct\")
+	song_loaded = false
+	emit_signal(\"loosed\")
+
+func load_lisic(button_pressed:bool):
+	if not button_pressed: return
+	if song_loaded:
+		await loosed
+	IO.Mode = \"Lisic\"
+	var num:int = 0
+	var sl:PackedStringArray = IO.songlist()
+	song_loaded = true
+	############ INSONG ############
+	if sl.size() == 0:
+		IO.Mode = \"\"
+		Notice.display(\"No Lisic Chart Detected.\")
+		return
+	############ INSONG ############
+	for i in sl:
+		var new_song = songcard.instantiate()
+		new_song.init(i, num, false)
+		add_child(new_song)
+		num += 1
+	IO.SongNum = num
+"
+
+[sub_resource type="GDScript" id="GDScript_70lb4"]
+resource_name = "ModeCard"
+script/source = "extends Sprite2D
+
+func select(num):
+	if num != -1: return
+	get_tree().call_group(\"SongCard\",\"unselect\")
+func unselect(): pass
+"
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_3lvso"]
+bg_color = Color(0, 0, 0, 0.501961)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+corner_detail = 12
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dtg2x"]
+bg_color = Color(0, 0, 0, 0.25098)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+corner_detail = 12
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6j05j"]
+bg_color = Color(0.2, 0.466667, 1, 1)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+corner_detail = 12
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ydq0d"]
+bg_color = Color(0, 0, 0, 0.25098)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+corner_detail = 12
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_x7uul"]
+bg_color = Color(0, 0, 0, 0.25098)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+corner_detail = 12
+
+[sub_resource type="ButtonGroup" id="ButtonGroup_ildig"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_c1aup"]
+shader = ExtResource("1_n1580")
+corner_radius = 48.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_bt0sx"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.968627, 0.968627, 0.968627, 0.368627)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+expand_margin_left = 1.0
+expand_margin_top = 1.0
+expand_margin_right = 1.0
+expand_margin_bottom = 1.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cp3lt"]
+bg_color = Color(1, 1, 1, 0.729412)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.121569, 0.117647, 0.2, 0.368627)
+corner_radius_top_left = 36
+corner_radius_top_right = 36
+corner_radius_bottom_right = 36
+corner_radius_bottom_left = 36
+corner_detail = 20
+expand_margin_left = 1.0
+expand_margin_top = 1.0
+expand_margin_right = 1.0
+expand_margin_bottom = 1.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_4gfyf"]
+bg_color = Color(0.121569, 0.117647, 0.2, 0.729412)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.368627)
+corner_radius_top_left = 36
+corner_radius_top_right = 36
+corner_radius_bottom_right = 36
+corner_radius_bottom_left = 36
+corner_detail = 20
+expand_margin_left = 1.0
+expand_margin_top = 1.0
+expand_margin_right = 1.0
+expand_margin_bottom = 1.0
+
+[node name="Select" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = SubResource("GDScript_hgmbq")
+
+[node name="Background" type="Sprite2D" parent="."]
+position = Vector2(960, 612)
+texture = ExtResource("2_wvn0n")
+
+[node name="ChangePlayerName" type="Button" parent="."]
+offset_left = 156.0
+offset_top = 68.0
+offset_right = 312.0
+offset_bottom = 116.0
+pivot_offset = Vector2(0, 24)
+auto_translate = false
+theme_override_colors/font_color = Color(0, 0, 0, 0)
+theme_override_colors/font_pressed_color = Color(0, 0, 0, 0)
+theme_override_colors/font_hover_color = Color(0, 0, 0, 0)
+theme_override_colors/font_focus_color = Color(0, 0, 0, 0)
+theme_override_colors/font_hover_pressed_color = Color(0, 0, 0, 0)
+theme_override_colors/font_disabled_color = Color(0, 0, 0, 0)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0)
+theme_override_font_sizes/font_size = 34
+theme_override_styles/normal = SubResource("StyleBoxEmpty_y17l5")
+theme_override_styles/hover = SubResource("StyleBoxFlat_fvr60")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_37q16")
+theme_override_styles/disabled = SubResource("StyleBoxEmpty_gtvjc")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_r3jix")
+alignment = 0
+
+[node name="PlayerName" type="Label" parent="."]
+offset_left = 156.0
+offset_top = 68.0
+offset_right = 312.0
+offset_bottom = 116.0
+pivot_offset = Vector2(0, 24)
+auto_translate = false
+theme_override_colors/font_color = Color(1, 1, 1, 0.960784)
+theme_override_font_sizes/font_size = 34
+vertical_alignment = 1
+
+[node name="LineEdit" type="LineEdit" parent="."]
+offset_top = 1248.0
+offset_right = 124.0
+offset_bottom = 1293.0
+theme_override_colors/font_color = Color(1, 1, 1, 0.960784)
+theme_override_colors/font_selected_color = Color(1, 1, 1, 0.960784)
+theme_override_colors/font_uneditable_color = Color(1, 1, 1, 0.960784)
+theme_override_colors/font_outline_color = Color(1, 1, 1, 0.960784)
+theme_override_font_sizes/font_size = 34
+theme_override_styles/normal = SubResource("StyleBoxFlat_y7qff")
+theme_override_styles/focus = SubResource("StyleBoxFlat_5efk0")
+expand_to_text_length = true
+shortcut_keys_enabled = false
+middle_mouse_paste_enabled = false
+deselect_on_focus_loss_enabled = false
+
+[node name="Songs" type="CanvasLayer" parent="."]
+process_priority = -2
+layer = 0
+script = SubResource("GDScript_d5pnq")
+init_offset = Vector2(960, 0)
+uns_texture = ExtResource("4_d8gdg")
+s_texture = ExtResource("3_vgvgf")
+p_texture = ExtResource("4_yh0rk")
+songcard = ExtResource("5_6gns8")
+chartselect = ExtResource("6_cx205")
+
+[node name="Timer" type="Timer" parent="Songs"]
+wait_time = 0.3
+one_shot = true
+
+[node name="ModeCard" type="Sprite2D" parent="Songs" groups=["SongCard"]]
+self_modulate = Color(0, 0, 0, 1)
+position = Vector2(0, 612)
+scale = Vector2(0.5, 0.5)
+texture = ExtResource("4_d8gdg")
+script = SubResource("GDScript_70lb4")
+
+[node name="Lisic" type="Button" parent="Songs/ModeCard"]
+offset_left = -544.0
+offset_top = -624.0
+offset_bottom = -536.0
+scale = Vector2(2, 2)
+auto_translate = false
+focus_mode = 0
+theme_override_styles/normal = SubResource("StyleBoxFlat_3lvso")
+theme_override_styles/hover = SubResource("StyleBoxFlat_dtg2x")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_6j05j")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_ydq0d")
+theme_override_styles/focus = SubResource("StyleBoxFlat_x7uul")
+toggle_mode = true
+shortcut_in_tooltip = false
+button_group = SubResource("ButtonGroup_ildig")
+
+[node name="Logo" type="Sprite2D" parent="Songs/ModeCard/Lisic"]
+position = Vector2(44, 44)
+scale = Vector2(0.2, 0.2)
+texture = ExtResource("5_8iepl")
+
+[node name="Label" type="Label" parent="Songs/ModeCard/Lisic"]
+offset_left = 88.0
+offset_top = 24.0
+offset_right = 146.0
+offset_bottom = 64.0
+theme_override_colors/font_color = Color(1, 1, 1, 0.968627)
+theme_override_font_sizes/font_size = 28
+text = "Lisic"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ChartLayer" type="CanvasLayer" parent="."]
+layer = 2
+
+[node name="OverLayer" type="CanvasLayer" parent="."]
+layer = 5
+
+[node name="UpEdge" type="Polygon2D" parent="OverLayer"]
+top_level = true
+polygon = PackedVector2Array(0, 0, 1920, 0, 1920, 12, 0, 12)
+vertex_colors = PackedColorArray(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0)
+
+[node name="Icon" type="Sprite2D" parent="OverLayer"]
+top_level = true
+material = SubResource("ShaderMaterial_c1aup")
+position = Vector2(80, 92)
+scale = Vector2(0.25, 0.25)
+texture = ExtResource("3_wbc4q")
+
+[node name="IconPanel" type="Panel" parent="OverLayer"]
+offset_left = 36.0
+offset_top = 48.0
+offset_right = 124.0
+offset_bottom = 136.0
+theme_override_styles/panel = SubResource("StyleBoxFlat_bt0sx")
+
+[node name="DownEdge" type="Polygon2D" parent="OverLayer"]
+top_level = true
+polygon = PackedVector2Array(0, 1212, 1920, 1212, 1920, 1224, 0, 1224)
+vertex_colors = PackedColorArray(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1)
+
+[node name="Docs" type="Button" parent="."]
+custom_minimum_size = Vector2(200, 72)
+offset_left = 860.0
+offset_top = 1038.0
+offset_right = 1060.0
+offset_bottom = 1110.0
+focus_mode = 0
+theme_override_colors/font_color = Color(0, 0, 0, 0.968627)
+theme_override_colors/font_pressed_color = Color(1, 1, 1, 0.968627)
+theme_override_colors/font_hover_color = Color(0, 0, 0, 0.968627)
+theme_override_colors/font_focus_color = Color(0, 0, 0, 0.968627)
+theme_override_colors/font_hover_pressed_color = Color(0, 0, 0, 0.968627)
+theme_override_colors/font_disabled_color = Color(0, 0, 0, 0.968627)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.968627)
+theme_override_font_sizes/font_size = 22
+theme_override_styles/normal = SubResource("StyleBoxFlat_cp3lt")
+theme_override_styles/hover = SubResource("StyleBoxFlat_cp3lt")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_4gfyf")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_cp3lt")
+theme_override_styles/focus = SubResource("StyleBoxFlat_cp3lt")
+shortcut_in_tooltip = false
+text = "◎  Docs"
+
+[connection signal="resized" from="." to="." method="_on_resized"]
+[connection signal="button_up" from="ChangePlayerName" to="." method="_on_change_player_name_button_up"]
+[connection signal="timeout" from="Songs/Timer" to="Songs" method="key_over"]
+[connection signal="toggled" from="Songs/ModeCard/Lisic" to="Songs" method="load_lisic"]
+[connection signal="toggled" from="Songs/ModeCard/Lisic" to="Songs" method="loose"]
+[connection signal="button_up" from="Docs" to="." method="tut"]

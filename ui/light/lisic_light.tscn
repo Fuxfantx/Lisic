@@ -1,0 +1,49 @@
+[gd_scene load_steps=2 format=3 uid="uid://bhehs6cqly7fq"]
+
+[sub_resource type="GDScript" id="GDScript_a03xl"]
+resource_name = "Light"
+script/source = "extends Sprite2D
+
+enum LightType {IDEAL30, IDEAL, GOOD_EARLY, GOOD_LATE, MISS_EARLY}
+var tween:Tween
+var Type:LightType
+@export var tween_enabled:bool = false
+
+# 这里要先init，再add_child
+func init(type:LightType, pos:int):
+	Type = type
+	position.x = (pos+1) * 160
+	position.y = 646
+
+func method(t:float):
+	modulate = Color(1,1,1,t)
+
+func _on_light_tree_entered():
+
+	if Type==LightType.IDEAL30: texture = get_parent().ideal30
+	elif Type==LightType.IDEAL: texture = get_parent().ideal
+	elif Type==LightType.GOOD_EARLY: texture = get_parent().good_early
+	elif Type==LightType.GOOD_LATE: texture = get_parent().good_late
+	else: texture = get_parent().miss_early
+
+	if tween_enabled:
+		tween = create_tween()
+		tween.stop()
+		tween.set_trans(Tween.TRANS_SINE)
+		tween.set_process_mode(Tween.TWEEN_PROCESS_PHYSICS)
+		tween.set_ease(Tween.EASE_IN)
+		tween.tween_method(method, 1.0, 0.0, 0.37)
+		tween.play()
+		tween.finished.connect(queue_free)
+	else:
+		await get_tree().create_timer(0.175).timeout
+		modulate = Color(1,1,1,0.45)
+		get_tree().create_timer(0.05).timeout.connect(queue_free)
+"
+
+[node name="Light" type="Sprite2D"]
+scale = Vector2(2, 2)
+script = SubResource("GDScript_a03xl")
+tween_enabled = true
+
+[connection signal="tree_entered" from="." to="." method="_on_light_tree_entered"]

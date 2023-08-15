@@ -1,0 +1,24 @@
+[gd_scene load_steps=3 format=3 uid="uid://6o3dyl4ovi4u"]
+
+[ext_resource type="PackedScene" uid="uid://b8tb2jihdp4p6" path="res://scenes/select.tscn" id="1_8irwo"]
+
+[sub_resource type="GDScript" id="GDScript_cwxk3"]
+resource_name = "Init"
+script/source = "extends Node
+@export var select:PackedScene
+
+func _enter_tree():
+	if not( IO.Save.is_empty() ):
+		Notice.transition()
+		await self.timeout
+		get_tree().change_scene_to(select)
+		Notice.display(\"———————       DEV BUILD       ———————\\nYour Save is Separate from the Release Build.\")
+	queue_free()
+"
+
+[node name="Init" type="Timer"]
+wait_time = 0.25
+one_shot = true
+autostart = true
+script = SubResource("GDScript_cwxk3")
+select = ExtResource("1_8irwo")

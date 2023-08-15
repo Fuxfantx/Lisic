@@ -1,0 +1,56 @@
+[gd_scene load_steps=4 format=3 uid="uid://b82d5i4tvn4wo"]
+
+[sub_resource type="GDScript" id="GDScript_nqj7a"]
+resource_name = "Transition"
+script/source = "extends Control
+
+func ready():
+	$AnimationPlayer.play(\"Transition\")
+
+func _on_animation_player_animation_finished(_anim_name):
+	Notice.InTransition = false
+	queue_free()
+"
+
+[sub_resource type="Animation" id="Animation_dqshn"]
+resource_name = "Transition"
+length = 1.1
+step = 0.05
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("CanvasLayer/ColorRect:color")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.25, 0.85, 1.1),
+"transitions": PackedFloat32Array(1, 1, 1, 1),
+"update": 0,
+"values": [Color(0, 0, 0, 0), Color(0, 0, 0, 1), Color(0, 0, 0, 1), Color(0, 0, 0, 0)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_yqh01"]
+_data = {
+"Transition": SubResource("Animation_dqshn")
+}
+
+[node name="Transition" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = SubResource("GDScript_nqj7a")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+libraries = {
+"": SubResource("AnimationLibrary_yqh01")
+}
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+layer = 6
+
+[node name="ColorRect" type="ColorRect" parent="CanvasLayer"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 0)
+
+[connection signal="tree_entered" from="." to="." method="ready"]
+[connection signal="animation_finished" from="AnimationPlayer" to="." method="_on_animation_player_animation_finished"]
