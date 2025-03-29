@@ -1,0 +1,227 @@
+[gd_scene load_steps=2 format=3 uid="uid://clt4opf5xwa3g"]
+
+[sub_resource type="GDScript" id="GDScript_6gh8w"]
+resource_name = "Script"
+script/source = "extends Control
+
+func _ready():
+	Engine.set_target_fps(30)
+
+func chart_convert():
+	# 行切分
+	var shell:PackedStringArray = $TextEdit.text.split(\"\\n\")
+
+	# 开头切分
+	var begin:Array = []
+	for i in shell:
+		if i.begins_with(\"<\"): break
+		i = i.replace(\"=\",\"[\")
+		i = i.replace(\";\",\"[\")
+		begin.append( i.split(\"[\",false) )
+
+	# 解析Offset
+	var offset = begin[0][1].to_float()
+	# print(offset)
+
+	# 解析BPM
+	var bpm_value:Array = []
+	var bpm_pos:Array = []
+	for i in begin:
+		if i[0] == \"#BPM \":
+			bpm_value.append( i[2].to_float() )
+		if i[0] == \"#BPMS\":
+			bpm_pos.append( i[2].to_float() )
+	# print(bpm_pos)
+	# print(bpm_value)
+
+	# 解析SC（用不到）
+	# var scs:Array
+	# for i in begin:
+	# 	if i[0] == \"#SC \" or i[0] == \"#SCI\":
+	# 		scs.append( i[2].to_float() )
+	# print(scs)
+
+	# 主体切分
+	var array1:Array = []
+	for i in shell:
+		if i.begins_with(\"<\"):
+			i = i.replace(\">\",\"\")
+			array1.append( i.split_floats(\"<\",false) )
+	# print(array1)
+
+	# 构建格线表
+	var tempo
+
+		# bpmlist为一行
+	if bpm_pos.size() == 1:
+		var tempo_list = [    [0,10000, offset*1000 , 240000/bpm_value[0] ]   ]
+		tempo = tempo_list.duplicate(true)
+
+		# bpmlist为两行
+	elif bpm_pos.size() == 2:
+		var tempo_list =[
+			[0 , bpm_pos[1] , offset*1000 , 240000/bpm_value[0] ]
+		]
+		var deltaT = (tempo_list[0][1] - tempo_list[0][0]) * tempo_list[0][3]
+		tempo_list.append(
+			[ bpm_pos[1] , 10000 , tempo_list[0][2]+deltaT , 240000/bpm_value[1] ]
+			)
+		tempo = tempo_list.duplicate(true)
+
+		# bpmlist三行以上
+	else:
+		# 处理第一行
+		var tempo_list =[
+			[0 , bpm_pos[1] , offset*1000 , 240000/bpm_value[0] ]
+		]
+		# 处理中间行
+		for i in range( 1,bpm_pos.size()-1 ):
+			var deltaT = (tempo_list[i-1][1] - tempo_list[i-1][0]) * tempo_list[i-1][3]
+			tempo_list.append(
+				[ bpm_pos[i] , bpm_pos[i+1] , tempo_list[i-1][2]+deltaT , 240000/bpm_value[i] ]
+			)
+		# 处理最后一行
+		var deltaTL = (tempo_list[-1][1] - tempo_list[-1][0]) * tempo_list[-1][3]
+		tempo_list.append(
+			[ bpm_pos[-1] , 10000 , tempo_list[-1][2]+deltaTL , 240000/bpm_value[-1] ]
+			)
+		tempo = tempo_list.duplicate(true)
+
+	# 设计函数：从格线表获取ms时间
+	# 接下来用到：array1，tempo
+	var to_ms = func(t):
+		for i in tempo:
+			if t<=i[1]: return int( i[2]+(t-i[0])*i[3] )
+		return 0
+
+	# Note分组转换：建立分组
+	var Tempos:Array = []
+	var Taps:Array = []
+	var Catches:Array = []
+	var LTaps:Array = []
+	var LCatches:Array = []
+	var RTaps:Array = []
+	var RCatches:Array = []
+
+	# Note分组转换：导入数据
+	for i in tempo:
+		Tempos.append(
+			[ i[2] , i[3] ]
+			)
+
+	for i in array1:
+		# 对应LTap
+		if i[1]==1 and i[3]==0:
+			LTaps.append(
+				[ to_ms.call(i[2]) , 0]
+				)
+			continue
+
+		# 对应RTap
+		if i[1]==1 and i[3]==13:
+			RTaps.append(
+				[ to_ms.call(i[2]) , 0]
+				)
+			continue
+
+		# 对应LCatch
+		if i[1]!=1 and i[3]==0:
+			LCatches.append(
+				[ to_ms.call(i[2]) , 0]
+				)
+			continue
+
+		# 对应RCatch
+		if i[1]!=1 and i[3]==13:
+			RCatches.append(
+				[ to_ms.call(i[2]) , 0]
+				)
+			continue
+
+		# 对应一般Tap
+		if i[1]==1:
+			Taps.append(
+				[ to_ms.call(i[2]) , int( clamp(i[3]-2,1,9) ) , 0]
+				) #说明：i[3]-2 是DR3谱面换算到Lisic谱面的格线位置，限制在1到9之间，然后转为整数
+			continue
+
+		# 对应一般Catch
+		if i[1]!=1:
+			Catches.append(
+				[ to_ms.call(i[2]) , int( clamp(i[3]-2,1,9) ) , 0]
+				) #说明：i[3]-2 是DR3谱面换算到Lisic谱面的格线位置，限制在1到9之间，然后转为整数
+			continue
+
+	# 拼装
+	var Statistics:Dictionary = {}
+	Statistics[\"Num\"] = LTaps.size() + RTaps.size() + LCatches.size() + RCatches.size() + Taps.size() + Catches.size()
+	Statistics[\"TapNum\"] = LTaps.size() + RTaps.size() + Taps.size()
+	Statistics[\"Dif\"] = 0
+	Statistics[\"VH\"] = 0
+	Statistics[\"PH\"] = 0
+	Statistics[\"IH\"] = 0
+
+	var Result:Dictionary = {}
+	Result[\"1deal\"] = \"Lisic\"
+	Result[\"Tempos\"] = Tempos
+	Result[\"Taps\"] = to_dict(Taps)
+	Result[\"Catches\"] = to_dict(Catches)
+	Result[\"LTaps\"] = to_dict(LTaps)
+	Result[\"RTaps\"] = to_dict(RTaps)
+	Result[\"LCatches\"] = to_dict(LCatches)
+	Result[\"RCatches\"] = to_dict(RCatches)
+	Result[\"Statistics\"] = Statistics
+
+	# 输出
+	var json = JSON.new()
+	$TextEdit.text = json.stringify(Result,\"\",false,false)
+
+# 更新：字典化
+func to_dict(sth:Array):
+	var itr:int = 0
+	var result_dict:Dictionary = {}
+	for i in sth:
+		result_dict[itr] = i
+		itr+=1
+	return result_dict
+"
+
+[node name="Control" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = SubResource("GDScript_6gh8w")
+
+[node name="TextEdit" type="TextEdit" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -480.0
+offset_top = -270.0
+offset_right = 480.0
+offset_bottom = 210.0
+grow_horizontal = 2
+grow_vertical = 2
+placeholder_text = "Paste a complete DR3 Fumen here.
+Incorrect input leads to a Convertor Crash."
+wrap_mode = 1
+scroll_smooth = true
+minimap_draw = true
+minimap_width = 50
+metadata/_edit_layout_mode = 1
+
+[node name="Button" type="Button" parent="."]
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -40.0
+offset_top = -64.0
+offset_right = 40.0
+offset_bottom = -33.0
+grow_horizontal = 2
+grow_vertical = 0
+text = "Convert"
+metadata/_edit_layout_mode = 1
+
+[connection signal="button_up" from="Button" to="." method="chart_convert"]
